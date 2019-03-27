@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 ##############
-#### Your name:
+#### Your name: Ting Qiu
 ##############
 
 import numpy as np
 import re
 from sklearn import svm, metrics
 from skimage import io, feature, filters, exposure, color
+from skimage.feature import hog
 
 class ImageClassifier:
     
@@ -34,24 +35,33 @@ class ImageClassifier:
 
     def extract_image_features(self, data):
         # Please do not modify the header above
-
         # extract feature vector from image data
 
         ########################
         ######## YOUR CODE HERE
         ########################
-        
+        feature_data = []
+        for picture in data:
+            image = exposure.equalize_hist(color.rgb2gray(picture))
+            gaussImage = filters.gaussian(image)
+            features = feature.hog(gaussImage, orientations=12, pixels_per_cell=(48, 48), cells_per_block=(4, 4),
+                                   block_norm='L2-Hys', visualize=False, visualise=None,
+                                   transform_sqrt=True, multichannel=None)
+            feature_data.append(features)
+
         # Please do not modify the return type below
         return(feature_data)
 
     def train_classifier(self, train_data, train_labels):
         # Please do not modify the header above
-        
         # train model and save the trained model to self.classifier
-        
+
         ########################
         ######## YOUR CODE HERE
         ########################
+
+        self.classifer = svm.SVC(kernel='linear')
+        self.classifer.fit(train_data, train_labels)
 
     def predict_labels(self, data):
         # Please do not modify the header
@@ -62,7 +72,7 @@ class ImageClassifier:
         ########################
         ######## YOUR CODE HERE
         ########################
-        
+        predicted_labels = self.classifer.predict(data)
         # Please do not modify the return type below
         return predicted_labels
 
@@ -74,7 +84,7 @@ def main():
     # load images
     (train_raw, train_labels) = img_clf.load_data_from_folder('./train/')
     (test_raw, test_labels) = img_clf.load_data_from_folder('./test/')
-    
+
     # convert images into features
     train_data = img_clf.extract_image_features(train_raw)
     test_data = img_clf.extract_image_features(test_raw)
