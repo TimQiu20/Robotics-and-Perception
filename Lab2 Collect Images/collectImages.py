@@ -6,12 +6,13 @@ Saves to destination
 '''
 
 import sys
+import os
 import cozmo
 import datetime
 import time
 
 def run(sdk_conn):
-    
+
     robot = sdk_conn.wait_for_robot()
     robot.camera.image_stream_enabled = True
     robot.camera.color_image_enabled = False
@@ -20,12 +21,12 @@ def run(sdk_conn):
     robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
 
     myargs = sys.argv[1:]
-    
+
     if len(myargs) <= 1:
         sys.exit("Incorrect arguments")
-    
+
     num_images_per_type = int(myargs[0])  # number of images to take of each type of object
-    
+
     print("Taking ", num_images_per_type, "images each of ", myargs[1:])
 
     for type in myargs[1:]:
@@ -38,7 +39,7 @@ def run(sdk_conn):
 
             timestamp = datetime.datetime.now().strftime("%dT%H%M%S%f")
 
-            new_image.save("./imgs/" + str(type) + "_" + timestamp + ".bmp")
+            new_image.save(os.path.abspath("C:/Users/fasts/OneDrive/Documents/CS 3630/Lab 2/imgs/" + str(type) + "_" + timestamp + ".bmp"))
 
             time.sleep(4)
 
