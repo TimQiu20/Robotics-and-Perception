@@ -1,11 +1,18 @@
+#Ting Qiu, George Jeno
+
+
+
 import cozmo
 import math
 import sys
 import time
+import random
+import numpy as np
 
 from cmap import *
 from gui import *
 from utils import *
+from gui import *
 
 MAX_NODES = 20000
 
@@ -19,9 +26,17 @@ def step_from_to(node0, node1, limit=75):
     #    limit units at most
     # 3. Hint: please consider using np.arctan2 function to get vector angle
     # 4. Note: remember always return a Node object
-    return node1
     ############################################################################
-
+    dist = get_dist(node0, node1)
+    if dist < limit:
+        return node1
+    dy = node1.y - node0.y
+    dx = node1.x - node0.y
+    angle = np.arctan2(dy, dx)
+    x = node0.x + np.cos(angle) * limit
+    y = node0.y + np.sin(angle) * limit
+    p = (x,y)
+    return Node(p,node0)
 
 def node_generator(cmap):
     rand_node = None
@@ -31,8 +46,17 @@ def node_generator(cmap):
     # 2. Use CozMap.is_inbound and CozMap.is_inside_obstacles to determine the
     #    legitimacy of the random node.
     # 3. Note: remember always return a Node object
-    pass
-    ############################################################################
+    prob = random.uniform(0, 1)
+    if prob < 0.05:
+        goal = cmap._goals[random.randint(1,len(cmap._goals)) - 1]
+        return Node((goal.x, goal.y))
+    else:
+        weight, height = cmap.get_size()
+        loop = True
+        while loop:
+            rand_node = Node((random.randint(0,weight),random.randint(0,height)), None)
+            if (cmap.is_inbound(rand_node)) and not cmap.is_inside_obstacles(rand_node):
+                loop = False
     return rand_node
 
 
@@ -48,9 +72,14 @@ def RRT(cmap, start):
         # 3. Limit the distance RRT can move
         # 4. Add one path from nearest node to random node
         #
-        rand_node = None
+        rand_node = cmap.get_random_valid_node()
         nearest_node = None
-        pass
+        nodes = cmap.get_nodes()
+        minimum = sys.maxsize
+        for node in nodes:
+            if get_dist(node,rand_node) < minimum:
+                nearest_node = node
+                minimum = get_dist(rand_node,nearest_node)
         ########################################################################
         time.sleep(0.01)
         cmap.add_path(nearest_node, rand_node)
@@ -68,7 +97,6 @@ def RRT(cmap, start):
     else:
         print("Please try again :-(")
 
-
 async def CozmoPlanning(robot: cozmo.robot.Robot):
     # Allows access to map and stopevent, which can be used to see if the GUI
     # has been closed by checking stopevent.is_set()
@@ -77,7 +105,42 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
     ########################################################################
     # TODO: please enter your code below.
     # Description of function provided in instructions
-
+    startX = 152.4
+    startY = 254
+    width, height = cmap.get_size()
+    mark = {}
+    count = 0
+    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+    while True:
+        cmap.set_start(Node(startX + robot.pose.position.x, startY + robot.pose.position.y))
+        updated, goal = await detect_cube_and_update_cmap(robot, mark, Node(startX + robot.pose.position.x, startY + robot.pose.position.y))
+        if updated:
+            cmap.reset()
+        if not cmap.is_solved():
+            if goal == None and len(cmap.get_goals()) == 0:
+                count = count + 1
+                if (count ==1):
+                    centerX = width / 2 - startX
+                    centerY = height / 2 - startY
+                    angle = cozmo.util.Angle((i % 12 - 6) * 30)
+                    nextPose = cozmo.util.Pose(centerX, centerY, 0, angle_z = angle)
+                    await robot.go_to_pose(nextPose).wait_for_completed()
+                await robot.turn_in_place(cozmo.util.degrees(35)).wait_for_completed()
+                continue
+            if len(cmap.get_goals()) > 0:
+                cmap.set_start(Node(startX + robot.pose.position.x, startY + robot.pose.position.y))
+                RRT(cmap, cmap.get_start())
+                if cmap.is_solved():
+                    path = cmap.get_smooth_path()
+                    index = 1
+        if cmap.is_solved():
+            if index == len(path):
+                print("Reached")
+                continue
+            angle = math.atan2(path[index].y - path[index - 1].y, path[index].x - path[index - 1].x)
+            p = cozmo.util.Pose(path[index].x - startX, path[index].y - startY,0 ,angle_z = cozmo.util.Angle(angle))
+            await robot.go_to_pose(p).wait_for_completed()
+            index = index + 1
 
 def get_global_node(local_angle, local_origin, node):
     """Helper function: Transform the node's position (x,y) from local coordinate frame specified by local_origin and local_angle to global coordinate frame.
@@ -92,8 +155,13 @@ def get_global_node(local_angle, local_origin, node):
     """
     ########################################################################
     # TODO: please enter your code below.
-    new_node = None
-    return new_node
+    cos = math.cos(local_angle)
+    sin = math.sin(local_angle)
+    x0 = local_origin.x
+    y0 = local_origin.y
+    x = node.x
+    y = node.y
+    return Node((x0 + x * cos + y * -sin, y0 + x * sin + y * cos),None)
 
 
 async def detect_cube_and_update_cmap(robot, marked, cozmo_pos):
@@ -209,7 +277,7 @@ if __name__ == '__main__':
         robot_thread = RobotThread()
         robot_thread.start()
     else:
-        cmap = CozMap("maps/map2.json", node_generator)
+        cmap = CozMap("maps/map3.json", node_generator)
         sim = RRTThread()
         sim.start()
     visualizer = Visualizer(cmap)

@@ -1,6 +1,6 @@
 import json
 import threading
-
+import random
 from utils import *
 
 
@@ -230,8 +230,25 @@ class CozMap:
         ############################################################################
         # TODO: please enter your code below.
         path = self.get_path()
+        if len(path) == 0:
+            return None
+        loop = True
+        while loop:
+            loop = False
+            for i in range(0,300):
+                size = len(path)
+                index1 = random.randint(0,size-1)
+                index2 = random.randint(0,size-1)
+                if (abs(index2 - index1) > 1):
+                    if (index1 > index2):
+                        temp = index1
+                        index1 = index2
+                        index2 = temp
+                    if not self.is_collision_with_obstacles((path[index1], path[index2])):
+                        loop = True
+                        for j in range(index1 + 1, index2):
+                            path.pop(index1+1)
         return path
-
     def get_path(self):
         
         final_path = None
